@@ -16,12 +16,12 @@
 	branch = mainline
 [submodule "rocm-libraries"]
 	path = rocm-libraries
-	url = https://github.com/ROCm/rocm-libraries
-	branch = develop
+	url = https://github.com/AMD-ROCm-Internal/rocm-libraries
+	branch = gfx117X
 [submodule "rocm-systems"]
 	path = rocm-systems
-	url = https://github.com/ROCm/rocm-systems.git
-	branch = develop
+	url = https://github.com/AMD-ROCm-Internal/rocm-systems
+	branch = amd_npi_medusa
 [submodule "spirv-llvm-translator"]
 	path = compiler/spirv-llvm-translator
 	url = https://github.com/ROCm/SPIRV-LLVM-Translator.git

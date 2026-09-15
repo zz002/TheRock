@@ -1,52 +1,27 @@
-From 5ed8280a3b58cfd970a3f6b77443109ea571769c Mon Sep 17 00:00:00 2001
+From 028c4af10e0ab673f4cefa4411fe4a2f327c210e Mon Sep 17 00:00:00 2001
 From: "chang.liu" <chang.liu@amd.com>
 Date: Mon, 24 Aug 2026 18:51:50 +0800
 Subject: [PATCH 2/2] hipBLASLt: cap TensileLogic parallelism on Windows
 
 ParallelMap2 ignored the -j argument and joblib loky opened too many worker
-processes, exhausting Windows handles (WinError 1450). Respect procs, default
-to four workers on Windows, pass --jobs=4 from CMake, and pass --cxx-compiler
-so TensileLogic does not search PATH for a non-existent dist/bin/clang++.
+processes, exhausting Windows handles (WinError 1450). Respect procs and
+default to four workers on Windows.
+
+The CMakeLists.txt --jobs=4/--cxx-compiler hunk this patch originally also
+carried is dropped on this base: hipblaslt_create_device_library() (in
+cmake/HipBLASLtCodegen.cmake) already always passes --cxx-compiler
+unconditionally, and falls through to this same Python-side default when
+the caller does not pass an explicit --jobs, so that hunk is redundant
+here.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
 ---
- .../hipblaslt/device-library/CMakeLists.txt   |  8 ++++++++
  .../tensilelite/Tensile/Common/Parallel.py    | 19 +++++++++++++------
  .../Tensile/TensileLogic/ParseArguments.py    |  3 ++-
- 3 files changed, 23 insertions(+), 7 deletions(-)
+ 2 files changed, 15 insertions(+), 7 deletions(-)
 
-diff --git a/projects/hipblaslt/device-library/CMakeLists.txt b/projects/hipblaslt/device-library/CMakeLists.txt
-index eef2f31df5d..da6c7baff33 100644
---- a/projects/hipblaslt/device-library/CMakeLists.txt
-+++ b/projects/hipblaslt/device-library/CMakeLists.txt
-@@ -26,6 +26,8 @@ if(HIPBLASLT_ENABLE_ASAN)
- endif()
- if(TENSILELITE_BUILD_PARALLEL_LEVEL)
-     set(TENSILELITE_BUILD_OPTS ${TENSILELITE_BUILD_OPTS} "--jobs=${TENSILELITE_BUILD_PARALLEL_LEVEL}")
-+elseif(WIN32)
-+    set(TENSILELITE_BUILD_OPTS ${TENSILELITE_BUILD_OPTS} "--jobs=4")
- endif()
- if(TENSILELITE_KEEP_BUILD_TMP)
-     set(TENSILELITE_BUILD_OPTS ${TENSILELITE_BUILD_OPTS} "--keep-build-tmp")
-@@ -66,12 +68,18 @@ set(HIPBLASLT_TENSILELOGIC_KNOWN_BUGS
- # of files; CONFIGURE_DEPENDS globs are costly). After editing logic only, run
- # scripts/run_tensile_logic_check.py or touch the stamp input to force re-validation.
- set(TENSILELOGIC_STAMP "${CMAKE_CURRENT_BINARY_DIR}/TensileLogic.stamp")
-+set(TENSILELOGIC_EXTRA_ARGS "")
-+if(WIN32)
-+    list(APPEND TENSILELOGIC_EXTRA_ARGS "--jobs=4")
-+endif()
-+list(APPEND TENSILELOGIC_EXTRA_ARGS "--cxx-compiler=${CMAKE_CXX_COMPILER}")
- add_custom_command(
-     OUTPUT "${TENSILELOGIC_STAMP}"
-     COMMENT "Validating library logic (TensileLogic --check-all) ..."
-     COMMAND ${HIPBLASLT_PYTHON_COMMAND}
-         "${hipblaslt_SOURCE_DIR}/tensilelite/Tensile/bin/TensileLogic"
-         "${HIPBLASLT_LIBLOGIC_PATH}"
-+        ${TENSILELOGIC_EXTRA_ARGS}
-         --known-bugs
-         "${HIPBLASLT_TENSILELOGIC_KNOWN_BUGS}"
-         --check-all
 diff --git a/projects/hipblaslt/tensilelite/Tensile/Common/Parallel.py b/projects/hipblaslt/tensilelite/Tensile/Common/Parallel.py
-index 1a2bf9e1190..0f9fa68090f 100644
+index 1a2bf9e119..0f9fa68090 100644
 --- a/projects/hipblaslt/tensilelite/Tensile/Common/Parallel.py
 +++ b/projects/hipblaslt/tensilelite/Tensile/Common/Parallel.py
 @@ -54,8 +54,11 @@ def CPUThreadCount(enable=True):
@@ -95,7 +70,7 @@ index 1a2bf9e1190..0f9fa68090f 100644
          )
  
 diff --git a/projects/hipblaslt/tensilelite/Tensile/TensileLogic/ParseArguments.py b/projects/hipblaslt/tensilelite/Tensile/TensileLogic/ParseArguments.py
-index f0153cfa952..9a895332c6b 100644
+index 9ad26a4545..6619e35723 100644
 --- a/projects/hipblaslt/tensilelite/Tensile/TensileLogic/ParseArguments.py
 +++ b/projects/hipblaslt/tensilelite/Tensile/TensileLogic/ParseArguments.py
 @@ -23,6 +23,7 @@
@@ -106,7 +81,7 @@ index f0153cfa952..9a895332c6b 100644
  from pathlib import Path
  
  from Tensile.Toolchain.Validators import ToolchainDefaults
-@@ -54,7 +55,7 @@ def parseArguments():
+@@ -56,7 +57,7 @@ def parseArguments():
          "-j",
          dest="Jobs",
          action="store",
@@ -116,5 +91,6 @@ index f0153cfa952..9a895332c6b 100644
      )
      argParser.add_argument(
 -- 
-2.55.0.windows.4
+2.53.0.windows.1
+
 
